@@ -11,33 +11,20 @@ Peak hours are DeepSeek's official 01:00–04:00 and 06:00–10:00 UTC windows (
 
 ## Install
 
-The widget is a browser-only client plugin with zero host code.
-
-### As an overlay (no profile changes)
+One command, then restart dsh:
 
 ```sh
-dsh web --patch node_modules/@deepseek-ai/dsh-client-ui-price/cordis.patch.yml
+dsh plugin --profile web add github:nathan5580/dsh-client-ui-price
+dsh web   # the chip appears beside the session title once a session is open
 ```
 
-or, from this repository:
+The package declares `dsh.bundle`, so `dsh plugin add` wires it into the
+profile's layer stack automatically. To use it from a source checkout instead,
+run the overlay directly:
 
 ```sh
-pnpm dsh web --patch packages/client/ui-price/cordis.patch.yml
+dsh web --patch ./cordis.patch.yml
 ```
-
-### As a profile bundle (persistent)
-
-Add the package to the profile and declare it in the profile manifest's `dsh.profile.bundles`; its `dsh.bundle.patch` inserts the `ui-price` row on every boot of that profile.
-
-### From npm / GitHub
-
-```sh
-npm install @deepseek-ai/dsh-client-ui-price
-# or directly from a public repository
-npm install github:your-name/dsh-client-ui-price
-```
-
-Then mount it with either of the two modes above. The host's `llm.balance` RPC (part of the shipped web composition) supplies the top-up read; no API key ever reaches the browser — the host resolves it.
 
 ## Configuration
 

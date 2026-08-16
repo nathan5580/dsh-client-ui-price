@@ -11,33 +11,18 @@
 
 ## 安装
 
-本组件是纯浏览器端客户端插件，无需宿主代码。
-
-### 作为 overlay 覆盖层
+一条命令，然后重启 dsh：
 
 ```sh
-dsh web --patch node_modules/@deepseek-ai/dsh-client-ui-price/cordis.patch.yml
+dsh plugin --profile web add github:nathan5580/dsh-client-ui-price
+dsh web   # 打开会话后，徽章会出现在会话标题旁
 ```
 
-仓库内调试：
+本包声明了 `dsh.bundle`，因此 `dsh plugin add` 会自动把它接入 profile 的层叠列表。若要从源码 checkout 使用，直接运行 overlay：
 
 ```sh
-pnpm dsh web --patch packages/client/ui-price/cordis.patch.yml
+dsh web --patch ./cordis.patch.yml
 ```
-
-### 作为 profile bundle（持久生效）
-
-将本包加入 profile 依赖，并在 profile 清单的 `dsh.profile.bundles` 中声明；其 `dsh.bundle.patch` 会在该 profile 每次启动时插入 `ui-price` 配置行。
-
-### 通过 npm / GitHub
-
-```sh
-npm install @deepseek-ai/dsh-client-ui-price
-# 或直接从公开仓库安装
-npm install github:your-name/dsh-client-ui-price
-```
-
-余额读取由宿主 `llm.balance` RPC（随 Web 组合内置）提供，API key 永不进入浏览器——由宿主解析。
 
 ## 配置
 
