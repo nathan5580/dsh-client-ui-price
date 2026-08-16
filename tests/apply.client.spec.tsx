@@ -3,8 +3,8 @@ import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi } from 'vitest'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { apply, inject } from '../src/client/index.ts'
-import type { PriceBadgeInjected } from '../src/client/contract/slots.ts'
+import { apply, inject } from '@deepseek-ai/dsh-client-ui-price/client'
+import type { PriceBadgeInjected } from '@deepseek-ai/dsh-client-ui-price/client'
 import { Config } from '../src/client/config.ts'
 import { PriceBadge } from '../src/client/PriceBadge.tsx'
 
@@ -19,6 +19,15 @@ async function bench() {
         result: {
           ok: true,
           value: { balance: { isAvailable: true, balances: [{ currency: 'USD', totalBalance: '12.5', grantedBalance: '2.5', toppedUpBalance: '10.0' }] } },
+        },
+      })),
+    },
+    sessions: {
+      models: vi.fn<() => Promise<{ rpcId: never; result: { ok: boolean; value?: unknown; error?: unknown } }>>(async () => ({
+        rpcId: 'rpc' as never,
+        result: {
+          ok: true,
+          value: { current: { provider: 'deepseek-official', model: 'deepseek-v4-flash' }, routable: true, groups: [], failures: [] },
         },
       })),
     },
@@ -49,14 +58,16 @@ describe('ui-price apply', () => {
     expect(entry.component).toBe(PriceBadge)
     expect(entry.options).toMatchObject({ id: 'price', order: -5 })
     expect(entry.locale).toBe('price')
-    const injected = (entry.inject as unknown as () => PriceBadgeInjected)()
+    const injected = (entry.inject as unknown as (sessionId: string) => PriceBadgeInjected)('s-1')
     // The schema fills the official defaults for a config-less mount.
     expect(injected.config.rates['deepseek-v4-flash']).toEqual({ cacheHit: 0.007, cacheMiss: 0.22, output: 0.66 })
     await expect(injected.refreshBalance()).resolves.toEqual({
       isAvailable: true,
       balances: [{ currency: 'USD', totalBalance: '12.5', grantedBalance: '2.5', toppedUpBalance: '10.0' }],
     })
+    await expect(injected.loadModel()).resolves.toEqual({ provider: 'deepseek-official', model: 'deepseek-v4-flash' })
     expect(b.api.llm.balance).toHaveBeenCalledWith({})
+    expect(b.api.sessions.models).toHaveBeenCalledWith({ sessionId: 's-1' })
   })
 
   it('surfaces an RPC error as a rejection for the widget state', async () => {
@@ -67,7 +78,7 @@ describe('ui-price apply', () => {
     })
     await b.ctx.plugin({ inject: [...inject], apply }, Config({})).await()
     const entry = b.slots.entries('conversation.session.header.actions')[0]!
-    const injected = (entry.inject as unknown as () => PriceBadgeInjected)()
+    const injected = (entry.inject as unknown as (sessionId: string) => PriceBadgeInjected)('s-1')
     await expect(injected.refreshBalance()).rejects.toThrow('no key')
   })
 

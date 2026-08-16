@@ -10,6 +10,7 @@ import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-cli
 // Type-only: pulls ui-conversation's SlotMap merge ('conversation.session.header.actions').
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { DeepSeekBalanceView } from '@deepseek-ai/dsh-client-connection/client'
+import type { ModelSelection } from '@deepseek-ai/dsh-api-remotes/client'
 import type { Config } from '../config.ts'
 
 /** Registrant-private injected share: the frozen config and the host RPC bridge. */
@@ -21,6 +22,12 @@ export interface PriceBadgeInjected {
    * view on success; the widget surfaces rejection as a retryable state.
    */
   refreshBalance: () => Promise<DeepSeekBalanceView>
+  /**
+   * The session's current model selection (the authoritative model the
+   * requests use, served by the host `session.models` RPC). Undefined when
+   * the session has no routable selection.
+   */
+  loadModel: () => Promise<ModelSelection | undefined>
 }
 
 /** Full component props: framework session kit + locale seat + injected face. */

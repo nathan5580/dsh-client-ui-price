@@ -1,4 +1,4 @@
-# @nathan5580/dsh-client-ui-price
+# @deepseek-ai/dsh-client-ui-price
 
 会话标题旁的一枚实时 DeepSeek 计费状态徽章：一个紧凑的彩色按钮，显示**当前是否处于高峰时段或“谷时”（闲时）**、本会话所用模型及其现行每百万 token 单价、会话累计费用以及剩余余额。点击可刷新余额；悬停查看明细。
 
@@ -16,7 +16,7 @@
 ### 作为 overlay 覆盖层
 
 ```sh
-dsh web --patch node_modules/@nathan5580/dsh-client-ui-price/cordis.patch.yml
+dsh web --patch node_modules/@deepseek-ai/dsh-client-ui-price/cordis.patch.yml
 ```
 
 仓库内调试：
@@ -32,9 +32,9 @@ pnpm dsh web --patch packages/client/ui-price/cordis.patch.yml
 ### 通过 npm / GitHub
 
 ```sh
-npm install @nathan5580/dsh-client-ui-price
+npm install @deepseek-ai/dsh-client-ui-price
 # 或直接从公开仓库安装
-npm install github:nathan5580/dsh-client-ui-price
+npm install github:your-name/dsh-client-ui-price
 ```
 
 余额读取由宿主 `llm.balance` RPC（随 Web 组合内置）提供，API key 永不进入浏览器——由宿主解析。
@@ -67,7 +67,7 @@ npm install github:nathan5580/dsh-client-ui-price
 ## 数据来源
 
 - **时段**：当前 UTC 时间对配置窗口的纯函数判定（`pricing.ts`，各边界均有单元测试）。
-- **模型**：会话快照中最近一次已完成请求的来源信息。
+- **模型**：会话当前的模型选择，由宿主 `session.models` RPC 提供（与 composeur 模型座显示的是同一数据源）。
 - **会话费用**：provider 上报的 token 用量投影（`uncachedInputTokens`、`cacheReadTokens`、`cacheWriteTokens`、`outputTokens`）× 适用单价。缓存写入按缓存未命中价计费（DeepSeek 未公布单独的缓存写入价）。
 - **余额**：宿主 `llm.balance` RPC（`GET {baseURL}/user/balance`），轮询且可手动刷新。
 

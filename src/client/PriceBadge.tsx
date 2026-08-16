@@ -12,11 +12,12 @@
  */
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import type { ModelSelection } from '@deepseek-ai/dsh-api-remotes/client'
 import { Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { DeepSeekBalanceView } from '@deepseek-ai/dsh-client-connection/client'
 import type { PriceBadgeComponentProps } from './contract/slots.ts'
 import {
-  applicableRate, displayModel, formatRate, formatUsd, isPeakAt, latestModel,
+  applicableRate, displayModel, formatRate, formatUsd, isPeakAt,
   nextRegimeChange, sessionCostUsd,
 } from './pricing.ts'
 import css from './PriceBadge.module.css'
@@ -53,12 +54,12 @@ type BalanceState =
  * @returns the chip, or null when every display segment is disabled.
  */
 export const PriceBadge = memo(function PriceBadge({
-  useSession, useProjection, config, refreshBalance, t,
+  sessionId, useProjection, config, refreshBalance, loadModel, t,
 }: PriceBadgeComponentProps) {
-  const nodes = useSession(s => s.chat.legacy.nodes)
   const usage = useProjection === undefined ? undefined : useProjection('tokenUsage')
   const [now, setNow] = useState(() => new Date())
   const [balance, setBalance] = useState<BalanceState>({ kind: 'loading' })
+  const [model, setModel] = useState<ModelSelection | undefined>()
   const refreshRef = useRef(refreshBalance)
   refreshRef.current = refreshBalance
 
@@ -88,10 +89,17 @@ export const PriceBadge = memo(function PriceBadge({
     return () => { clearInterval(timer) }
   }, [config.showBalance, config.pollIntervalMs, refresh])
 
-  const model = useMemo(() => latestModel(nodes), [nodes])
-  // The snapshot is a runtime boundary: a node may carry provenance without
-  // a resolved model (a request that failed before materializing one), so the
-  // model id is only used when it is a non-empty string.
+  // The session's model selection rides the host session.models RPC (the same
+  // authority the composer's model seat renders); reload on session change and
+  // on click together with the balance.
+  const reloadModel = useCallback(() => {
+    void loadModel().then(next => { setModel(next) })
+  }, [loadModel])
+  useEffect(() => {
+    if (!config.showModel) return
+    reloadModel()
+  }, [config.showModel, reloadModel, sessionId])
+
   const modelId = model !== undefined && typeof model.model === 'string' && model.model.length > 0 ? model.model : undefined
   const peak = isPeakAt(now, config.peakHours)
   const next = useMemo(() => nextRegimeChange(now, config.peakHours), [now, config.peakHours])
@@ -178,7 +186,7 @@ export const PriceBadge = memo(function PriceBadge({
         type="button"
         className={css.chip}
         data-regime={peak ? 'peak' : 'valley'}
-        onClick={() => { void refresh() }}
+        onClick={() => { void refresh(); if (config.showModel) reloadModel() }}
         aria-label={label}
         title={label}
       >

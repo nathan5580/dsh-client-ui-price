@@ -1,4 +1,4 @@
-# @nathan5580/dsh-client-ui-price
+# @deepseek-ai/dsh-client-ui-price
 
 A live DeepSeek billing-status chip for the session header: one compact, colored button beside the session title that shows **whether you are in peak or "valley" (off-peak) hours right now**, the model the session is on with its current per-1M-token rates, the session's accumulated cost, and the remaining top-up. Click it to refresh the balance read; hover for the breakdown.
 
@@ -11,13 +11,12 @@ Peak hours are DeepSeek's official 01:00–04:00 and 06:00–10:00 UTC windows (
 
 ## Install
 
-The widget is a browser-only client plugin with zero host code. It registers into the `conversation.session.header.actions` seat of the DeepSeek Harness Web UI, so it needs a recent harness build that renders that seat (it ships with the current source of deepseek-harness).
+The widget is a browser-only client plugin with zero host code.
 
 ### As an overlay (no profile changes)
 
 ```sh
-# from the package installed via npm or GitHub
-dsh web --patch node_modules/@nathan5580/dsh-client-ui-price/cordis.patch.yml
+dsh web --patch node_modules/@deepseek-ai/dsh-client-ui-price/cordis.patch.yml
 ```
 
 or, from this repository:
@@ -33,10 +32,9 @@ Add the package to the profile and declare it in the profile manifest's `dsh.pro
 ### From npm / GitHub
 
 ```sh
-# from npm (once published)
-npm install @nathan5580/dsh-client-ui-price
-# or directly from this repository
-npm install github:nathan5580/dsh-client-ui-price
+npm install @deepseek-ai/dsh-client-ui-price
+# or directly from a public repository
+npm install github:your-name/dsh-client-ui-price
 ```
 
 Then mount it with either of the two modes above. The host's `llm.balance` RPC (part of the shipped web composition) supplies the top-up read; no API key ever reaches the browser — the host resolves it.
@@ -69,7 +67,7 @@ All fields are optional; the defaults are the official DeepSeek V4 off-peak list
 ## Data sources
 
 - **Regime**: pure function of the current UTC time against the configured windows (`pricing.ts`, unit-tested at every boundary).
-- **Model**: the most recent completed request's provenance from the conversation snapshot.
+- **Model**: the session's current model selection, served by the host `session.models` RPC (the same authority the composer's model seat renders).
 - **Session cost**: the provider-reported token-usage projection (`uncachedInputTokens`, `cacheReadTokens`, `cacheWriteTokens`, `outputTokens`) times the applicable rate. Cache writes bill at the cache-miss rate (DeepSeek publishes no separate cache-write price).
 - **Top-up**: the host's `llm.balance` RPC (`GET {baseURL}/user/balance`), polled and refreshable.
 

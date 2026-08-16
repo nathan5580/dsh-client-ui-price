@@ -8,6 +8,7 @@
 
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
+import type { SessionId } from '@deepseek-ai/dsh-client-connection/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { PriceBadgeInjected } from './contract/slots.ts'
@@ -21,10 +22,10 @@ export type {
 export type { PriceKey } from './locales.ts'
 export type { Config as PriceConfig, ModelRate } from './config.ts'
 export {
-  applicableRate, displayModel, formatRate, formatUsd, isPeakAt, latestModel,
+  applicableRate, displayModel, formatRate, formatUsd, isPeakAt,
   nextRegimeChange, sessionCostUsd,
 } from './pricing.ts'
-export type { ModelCarrier, RegimeChange } from './pricing.ts'
+export type { RegimeChange } from './pricing.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -51,7 +52,8 @@ export function apply(ctx: ClientContext, config: PriceConfig): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-price: dictionaries')
 
   const connection = ctx.get('connection') as ConnectionHandle
-  const injectProps = (): PriceBadgeInjected => ({
+  // Session-scoped slot: the framework resolves and passes the session id.
+  const injectProps = (sessionId: SessionId): PriceBadgeInjected => ({
     config: resolved,
     refreshBalance: async () => {
       const response = await connection.api.llm.balance({})
@@ -59,6 +61,11 @@ export function apply(ctx: ClientContext, config: PriceConfig): void {
         throw new Error(response.result.error.message)
       }
       return response.result.value.balance
+    },
+    loadModel: async () => {
+      const response = await connection.api.sessions.models({ sessionId })
+      if (!response.result.ok) return undefined
+      return response.result.value.current
     },
   })
 

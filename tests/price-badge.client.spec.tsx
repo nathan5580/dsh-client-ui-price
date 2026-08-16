@@ -14,14 +14,9 @@ afterEach(() => {
 const config = Config({})
 const t: PriceBadgeComponentProps['t'] = key => (en as Record<string, string>)[key] ?? key
 
-/** A fake conversation snapshot whose latest assistant node carries the model. */
-function snapshot(model = 'deepseek-v4-flash') {
-  return { chat: { legacy: { nodes: [{ provenance: { provider: 'deepseek-official', model } }] } } } as never
-}
-
 interface MountOptions {
   at?: string
-  model?: string
+  model?: string | null
   usage?: unknown
   refresh?: () => Promise<unknown>
 }
@@ -34,14 +29,17 @@ function mount(options: MountOptions = {}) {
   vi.setSystemTime(new Date(at))
   const refresh = options.refresh
     ?? (async () => ({ isAvailable: true, balances: [{ currency: 'USD', totalBalance: '12.5', grantedBalance: '2.5', toppedUpBalance: '10' }] }))
-  const useSession = ((selector: (snapshotValue: never) => unknown) => selector(snapshot(options.model))) as never
+  const loadModel = options.model === null
+    ? (async () => undefined)
+    : (async () => ({ provider: 'deepseek-official', model: options.model ?? 'deepseek-v4-flash' }))
   const useProjection = (() => options.usage) as never
   const view = render(
     <PriceBadge
-      useSession={useSession}
+      sessionId="s-1"
       useProjection={useProjection}
       config={config}
       refreshBalance={refresh as never}
+      loadModel={loadModel as never}
       t={t}
     />,
   )
@@ -63,14 +61,16 @@ describe('PriceBadge', () => {
     expect(chip.textContent).toContain('Peak')
   })
 
-  it('shows the model and the session cost from the token usage', () => {
+  it('shows the model and the session cost from the token usage', async () => {
     mount({
       at: '2026-08-16T12:00:00Z',
       usage: { uncachedInputTokens: 1_000_000, outputTokens: 500_000, cacheReadTokens: 1_000_000, cacheWriteTokens: 1_000_000 },
     })
-    const chip = screen.getByRole('button')
-    expect(chip.textContent).toContain('v4-flash')
-    expect(chip.textContent).toContain('$0.78')
+    await waitFor(() => {
+      const chip = screen.getByRole('button')
+      expect(chip.textContent).toContain('v4-flash')
+      expect(chip.textContent).toContain('$0.78')
+    })
   })
 
   it('renders the top-up once the balance read settles', async () => {
@@ -108,24 +108,14 @@ describe('PriceBadge', () => {
     })
   })
 
-  it('still renders the regime when the latest node has provenance without a model', () => {
-    vi.useFakeTimers({ toFake: ['Date'] })
-    vi.setSystemTime(new Date('2026-08-16T12:00:00Z'))
-    const broken = { chat: { legacy: { nodes: [{ provenance: { provider: 'deepseek-official' } }] } } } as never
-    const view = render(
-      <PriceBadge
-        useSession={((selector: (snapshotValue: never) => unknown) => selector(broken)) as never}
-        useProjection={(() => undefined) as never}
-        config={config}
-        refreshBalance={(() => Promise.resolve({ isAvailable: true, balances: [{ currency: 'USD', totalBalance: '1', grantedBalance: '0', toppedUpBalance: '1' }] })) as never}
-        t={t}
-      />,
-    )
-    const chip = screen.getByRole('button')
-    expect(chip.getAttribute('data-regime')).toBe('valley')
-    expect(chip.textContent).toContain('Valley')
-    expect(chip.textContent).not.toContain('v4-flash')
-    expect(view.container.textContent).not.toBe('')
+  it('still renders the regime when the session has no routable model selection', async () => {
+    mount({ at: '2026-08-16T12:00:00Z', model: null })
+    await waitFor(() => {
+      const chip = screen.getByRole('button')
+      expect(chip.getAttribute('data-regime')).toBe('valley')
+      expect(chip.textContent).toContain('Valley')
+      expect(chip.textContent).not.toContain('v4-flash')
+    })
   })
 
   it('renders nothing when every segment is disabled', () => {

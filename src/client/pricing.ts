@@ -8,11 +8,6 @@
 import type { TokenUsageProjection } from '@deepseek-ai/dsh-token-meter/client'
 import type { ModelRate } from './config.ts'
 
-/** Structural carrier of one assistant node's request provenance. */
-export interface ModelCarrier {
-  provenance?: { provider: string; model: string } | undefined
-}
-
 /** One pending regime flip at the top of an hour. */
 export interface RegimeChange {
   /** The regime that starts at {@link at}. */
@@ -85,21 +80,6 @@ export function applicableRate(
   }
 }
 
-/**
- * The model of the most recent completed request in a session's node list, or
- * undefined when no request has completed yet. Accepts the runtime's node
- * union and reads the optional provenance field structurally.
- * @param nodes - conversation nodes in chronological order.
- * @returns the last carrier's provenance.
- */
-export function latestModel(nodes: readonly unknown[]): ModelCarrier['provenance'] {
-  for (let index = nodes.length - 1; index >= 0; index -= 1) {
-    const node = nodes[index] as ModelCarrier | undefined
-    const provenance = node?.provenance
-    if (provenance !== undefined) return provenance
-  }
-  return undefined
-}
 
 /**
  * Estimate the USD cost of a session's billed tokens. Buckets are disjoint, so

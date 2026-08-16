@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { TokenUsageProjection } from '@deepseek-ai/dsh-token-meter/client'
 import { DEFAULT_RATES } from '../src/client/config.ts'
 import {
-  applicableRate, displayModel, formatRate, formatUsd, isPeakAt, latestModel,
+  applicableRate, displayModel, formatRate, formatUsd, isPeakAt,
   nextRegimeChange, sessionCostUsd,
 } from '../src/client/pricing.ts'
 
@@ -93,24 +93,6 @@ describe('sessionCostUsd', () => {
       { uncachedInputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
       { cacheHit: 0.007, cacheMiss: 0.22, output: 0.66 },
     )).toBe(0)
-  })
-})
-
-describe('latestModel', () => {
-  it('returns the last completed request provenance', () => {
-    expect(latestModel([
-      { provenance: { provider: 'deepseek-official', model: 'deepseek-v4-flash' } },
-      { provenance: { provider: 'deepseek-official', model: 'deepseek-v4-pro' } },
-    ])).toEqual({ provider: 'deepseek-official', model: 'deepseek-v4-pro' })
-  })
-
-  it('skips nodes without provenance', () => {
-    expect(latestModel([{}, { provenance: { provider: 'p', model: 'm' } }]))
-      .toEqual({ provider: 'p', model: 'm' })
-  })
-
-  it('returns undefined for an empty list', () => {
-    expect(latestModel([])).toBeUndefined()
   })
 })
 
