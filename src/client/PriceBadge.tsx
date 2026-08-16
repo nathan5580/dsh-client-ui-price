@@ -11,7 +11,7 @@
  * injected balance RPC. No model request, no wire reads beyond the balance.
  */
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { DeepSeekBalanceView } from '@deepseek-ai/dsh-client-connection/client'
 import type { PriceBadgeComponentProps } from './contract/slots.ts'
@@ -135,17 +135,41 @@ export const PriceBadge = memo(function PriceBadge({
     }
   }
 
-  const metaParts: string[] = []
-  if (config.showModel && modelId !== undefined) metaParts.push(displayModel(modelId))
-  if (config.showCost && cost !== null) metaParts.push(formatUsd(cost))
+  // Distinct, labelled meta segments: the model stays plain text while the
+  // session cost and the top-up render as separate tinted badges (amber for
+  // money spent, cyan for money available), each carrying its own glyph.
+  const metaNodes: ReactNode[] = []
+  const metaText: string[] = []
+  if (config.showModel && modelId !== undefined) {
+    metaNodes.push(<span key="model" className={css.model}>{displayModel(modelId)}</span>)
+    metaText.push(displayModel(modelId))
+  }
+  if (config.showCost && cost !== null) {
+    metaNodes.push(
+      <span key="cost" className={css.badge} data-kind="cost" title={t('price.sessionCost') + ': ' + formatUsd(cost)}>
+        Σ {formatUsd(cost)}
+      </span>,
+    )
+    metaText.push(formatUsd(cost))
+  }
   if (config.showBalance) {
-    if (balance.kind === 'ready') metaParts.push('↑' + formatAmount(balance.toppedUp) + balance.currency)
-    else if (balance.kind === 'error') metaParts.push('· · ·')
+    if (balance.kind === 'ready') {
+      metaNodes.push(
+        <span key="balance" className={css.badge} data-kind="balance"
+          title={t('price.balance') + ': ' + formatAmount(balance.toppedUp) + ' ' + balance.currency}>
+          ↑{formatAmount(balance.toppedUp)}{balance.currency}
+        </span>,
+      )
+      metaText.push('↑' + formatAmount(balance.toppedUp) + balance.currency)
+    } else if (balance.kind === 'error') {
+      metaNodes.push(<span key="balance" className={css.badge} data-kind="balance">· · ·</span>)
+      metaText.push('· · ·')
+    }
   }
 
   const label = [
     config.showRegime ? t(peak ? 'price.peak' : 'price.offPeak') : null,
-    metaParts.length > 0 ? metaParts.join(' · ') : null,
+    metaText.length > 0 ? metaText.join(' · ') : null,
   ].filter(Boolean).join(' · ')
 
   return (
@@ -160,7 +184,7 @@ export const PriceBadge = memo(function PriceBadge({
       >
         {config.showRegime && <span className={css.dot} aria-hidden />}
         {config.showRegime && <span className={css.status}>{t(peak ? 'price.peak' : 'price.offPeak')}</span>}
-        {metaParts.length > 0 && <span className={css.meta}>{metaParts.join(' · ')}</span>}
+        {metaNodes.length > 0 && <span className={css.meta}>{metaNodes}</span>}
       </button>
     </Tooltip>
   )

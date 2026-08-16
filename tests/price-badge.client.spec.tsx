@@ -91,6 +91,23 @@ describe('PriceBadge', () => {
     await waitFor(() => { expect(refresh).toHaveBeenCalledTimes(2) })
   })
 
+  it('renders the session cost and the top-up as distinct badges', async () => {
+    mount({
+      at: '2026-08-16T12:00:00Z',
+      usage: { uncachedInputTokens: 1_000_000, outputTokens: 500_000, cacheReadTokens: 1_000_000, cacheWriteTokens: 1_000_000 },
+    })
+    await waitFor(() => {
+      const chip = screen.getByRole('button')
+      const cost = chip.querySelector('[data-kind="cost"]')
+      const balance = chip.querySelector('[data-kind="balance"]')
+      expect(cost).not.toBeNull()
+      expect(balance).not.toBeNull()
+      expect(cost?.textContent).toContain('$0.78')
+      expect(balance?.textContent).toContain('↑10USD')
+      expect(cost?.getAttribute('data-kind')).not.toBe(balance?.getAttribute('data-kind'))
+    })
+  })
+
   it('still renders the regime when the latest node has provenance without a model', () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-08-16T12:00:00Z'))

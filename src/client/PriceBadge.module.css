@@ -51,8 +51,35 @@
 }
 
 .meta {
-  opacity: 0.85;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 260px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 180px;
+}
+
+/* Plain model id: quiet, secondary. */
+.model {
+  opacity: 0.85;
+}
+
+/* Distinct money badges: amber = spent this session, cyan = available top-up. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 5px;
+  border-radius: 6px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge[data-kind='cost'] {
+  color: var(--dsh-price-cost, #e0a63e);
+  background: var(--dsh-price-cost-bg, rgba(224, 166, 62, 0.14));
+}
+
+.badge[data-kind='balance'] {
+  color: var(--dsh-price-balance, #4db6e8);
+  background: var(--dsh-price-balance-bg, rgba(77, 182, 232, 0.14));
 }
