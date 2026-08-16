@@ -1,4 +1,4 @@
-# Opt-in DeepSeek pricing widget (client plugin).
+# Opt-in DeepSeek pricing widget (client plugin). Add this package to a profile
 #
 # Install as an overlay:
 #   dsh web --patch packages/client/ui-price/cordis.patch.yml
@@ -7,4 +7,4 @@
 # inserts the row on every boot of that profile.
 - insert:
     - id: ui-price
-      name: '@deepseek-ai/dsh-client-ui-price'
+      name: '@nathan5580/dsh-client-ui-price'

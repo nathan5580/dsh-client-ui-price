@@ -56,7 +56,7 @@ npm install github:your-name/dsh-client-ui-price
 
 ```yaml
 - id: ui-price
-  name: '@deepseek-ai/dsh-client-ui-price'
+  name: '@nathan5580/dsh-client-ui-price'
   config:
     peakHours: [[1, 4], [6, 10]]
     rates:

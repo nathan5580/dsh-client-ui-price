@@ -56,7 +56,7 @@ All fields are optional; the defaults are the official DeepSeek V4 off-peak list
 
 ```yaml
 - id: ui-price
-  name: '@deepseek-ai/dsh-client-ui-price'
+  name: '@nathan5580/dsh-client-ui-price'
   config:
     peakHours: [[1, 4], [6, 10]]
     rates:
