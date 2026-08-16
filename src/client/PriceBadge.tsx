@@ -1,0 +1,167 @@
+/**
+ * The session-header pricing chip: one compact, colored button beside the
+ * session title whose live status is the DeepSeek billing regime — "peak"
+ * (01:00-04:00 / 06:00-10:00 UTC, hot red) or "valley" (off-peak, cool green).
+ * The regime flips within a minute of the hour boundary, and the tooltip adds
+ * the next change, the current model's live per-1M rates, the accumulated
+ * session cost, and the remaining top-up. Clicking refreshes the balance read.
+ *
+ * Data rides the framework seats only: the token-usage projection (provider
+ * billed buckets), the conversation snapshot (request provenance), and the
+ * injected balance RPC. No model request, no wire reads beyond the balance.
+ */
+
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { DeepSeekBalanceView } from '@deepseek-ai/dsh-client-connection/client'
+import type { PriceBadgeComponentProps } from './contract/slots.ts'
+import {
+  applicableRate, displayModel, formatRate, formatUsd, isPeakAt, latestModel,
+  nextRegimeChange, sessionCostUsd,
+} from './pricing.ts'
+import css from './PriceBadge.module.css'
+
+/** Regime clock tick: the peak/valley classification flips at hour boundaries. */
+const CLOCK_INTERVAL_MS = 60_000
+
+/** Prefer the first USD bucket, then the first bucket overall. */
+function pickBalance(balance: DeepSeekBalanceView): { currency: string; toppedUp: number; total: number } | null {
+  const bucket = balance.balances.find(b => b.currency === 'USD') ?? balance.balances[0]
+  if (bucket === undefined) return null
+  return {
+    currency: bucket.currency,
+    toppedUp: Number.parseFloat(bucket.toppedUpBalance),
+    total: Number.parseFloat(bucket.totalBalance),
+  }
+}
+
+/** Compact money for the chip: 3.4 / 12.5 / 110 (no thousands separators). */
+function formatAmount(value: number): string {
+  if (Number.isNaN(value)) return '0'
+  if (value >= 100) return String(Math.round(value))
+  return String(Math.round(value * 10) / 10)
+}
+
+type BalanceState =
+  | { kind: 'loading' }
+  | { kind: 'error' }
+  | { kind: 'ready'; currency: string; toppedUp: number; total: number }
+
+/**
+ * Render this session's live pricing status beside its title.
+ * @param props - composed slot props.
+ * @returns the chip, or null when every display segment is disabled.
+ */
+export const PriceBadge = memo(function PriceBadge({
+  useSession, useProjection, config, refreshBalance, t,
+}: PriceBadgeComponentProps) {
+  const nodes = useSession(s => s.chat.legacy.nodes)
+  const usage = useProjection === undefined ? undefined : useProjection('tokenUsage')
+  const [now, setNow] = useState(() => new Date())
+  const [balance, setBalance] = useState<BalanceState>({ kind: 'loading' })
+  const refreshRef = useRef(refreshBalance)
+  refreshRef.current = refreshBalance
+
+  useEffect(() => {
+    const timer = setInterval(() => { setNow(new Date()) }, CLOCK_INTERVAL_MS)
+    return () => { clearInterval(timer) }
+  }, [])
+
+  const refresh = useCallback(async () => {
+    try {
+      const view = await refreshRef.current()
+      const picked = pickBalance(view)
+      if (picked === null) {
+        setBalance({ kind: 'error' })
+        return
+      }
+      setBalance({ kind: 'ready', ...picked })
+    } catch {
+      setBalance({ kind: 'error' })
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!config.showBalance) return
+    void refresh()
+    const timer = setInterval(() => { void refresh() }, config.pollIntervalMs)
+    return () => { clearInterval(timer) }
+  }, [config.showBalance, config.pollIntervalMs, refresh])
+
+  const model = useMemo(() => latestModel(nodes), [nodes])
+  // The snapshot is a runtime boundary: a node may carry provenance without
+  // a resolved model (a request that failed before materializing one), so the
+  // model id is only used when it is a non-empty string.
+  const modelId = model !== undefined && typeof model.model === 'string' && model.model.length > 0 ? model.model : undefined
+  const peak = isPeakAt(now, config.peakHours)
+  const next = useMemo(() => nextRegimeChange(now, config.peakHours), [now, config.peakHours])
+  const minutesToChange = Math.max(0, Math.ceil((next.at.getTime() - now.getTime()) / 60_000))
+  const rate = useMemo(
+    () => modelId === undefined
+      ? undefined
+      : applicableRate(modelId, config.rates, config.peakHours, config.peakMultiplier, now),
+    [modelId, config, now],
+  )
+  const cost = usage !== undefined && rate !== undefined ? sessionCostUsd(usage, rate) : null
+
+  if (!config.showRegime && !config.showModel && !config.showCost && !config.showBalance) return null
+
+  const tooltipParts: string[] = []
+  if (config.showRegime) {
+    tooltipParts.push(
+      t(peak ? 'price.peak' : 'price.offPeak')
+        + ' · ' + t('price.window') + ': ' + config.peakHours.map(([start, end]) => start + ':00–' + end + ':00').join(' / '),
+    )
+    tooltipParts.push(t('price.nextChange') + ': ' + next.at.toISOString().slice(11, 16) + ' UTC (~' + minutesToChange + ' min)')
+  }
+  if (config.showModel && modelId !== undefined) {
+    tooltipParts.push(
+      rate === undefined
+        ? modelId + ' (' + t('price.rates') + ': —)'
+        : modelId + ' · ' + t('price.rates') + ': ' + t('price.cacheMiss') + ' ' + formatRate(rate.cacheMiss)
+          + ' · ' + t('price.cacheHit') + ' ' + formatRate(rate.cacheHit)
+          + ' · ' + t('price.output') + ' ' + formatRate(rate.output),
+    )
+  }
+  if (config.showCost) {
+    tooltipParts.push(cost === null ? t('price.sessionCost') + ': —' : t('price.sessionCost') + ': ' + formatUsd(cost))
+  }
+  if (config.showBalance) {
+    if (balance.kind === 'ready') {
+      tooltipParts.push(t('price.balance') + ': ' + formatAmount(balance.toppedUp) + ' ' + balance.currency
+        + ' (' + t('price.totalBalance') + ': ' + formatAmount(balance.total) + ')')
+    } else if (balance.kind === 'error') {
+      tooltipParts.push(t('price.unavailable'))
+    }
+  }
+
+  const metaParts: string[] = []
+  if (config.showModel && modelId !== undefined) metaParts.push(displayModel(modelId))
+  if (config.showCost && cost !== null) metaParts.push(formatUsd(cost))
+  if (config.showBalance) {
+    if (balance.kind === 'ready') metaParts.push('↑' + formatAmount(balance.toppedUp) + balance.currency)
+    else if (balance.kind === 'error') metaParts.push('· · ·')
+  }
+
+  const label = [
+    config.showRegime ? t(peak ? 'price.peak' : 'price.offPeak') : null,
+    metaParts.length > 0 ? metaParts.join(' · ') : null,
+  ].filter(Boolean).join(' · ')
+
+  return (
+    <Tooltip label={tooltipParts.join(' · ')} delayMs={500}>
+      <button
+        type="button"
+        className={css.chip}
+        data-regime={peak ? 'peak' : 'valley'}
+        onClick={() => { void refresh() }}
+        aria-label={label}
+        title={label}
+      >
+        {config.showRegime && <span className={css.dot} aria-hidden />}
+        {config.showRegime && <span className={css.status}>{t(peak ? 'price.peak' : 'price.offPeak')}</span>}
+        {metaParts.length > 0 && <span className={css.meta}>{metaParts.join(' · ')}</span>}
+      </button>
+    </Tooltip>
+  )
+})
